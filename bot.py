@@ -189,7 +189,7 @@ async def top_players(interaction: discord.Interaction, kpi: str, min_games: int
         kpi: The KPI to rank by (kpm, kd, combat)
         min_games: Minimum number of games played
     """
-    await interaction.response.defer(ephemeral=True)
+    await interaction.response.defer()
 
     try:
         # Get watchlist (only follow=NULL - neutral players)
@@ -220,8 +220,7 @@ async def top_players(interaction: discord.Interaction, kpi: str, min_games: int
 
         if not top_5:
             await interaction.followup.send(
-                "No neutral players found matching criteria. All top players may already be tracked.",
-                ephemeral=True
+                "No neutral players found matching criteria. All top players may already be tracked."
             )
             return
 
@@ -261,14 +260,12 @@ async def top_players(interaction: discord.Interaction, kpi: str, min_games: int
         # Send embed with view
         await interaction.followup.send(
             embed=embed,
-            view=view,
-            ephemeral=True
+            view=view
         )
 
     except Exception as e:
         await interaction.followup.send(
-            f"❌ Error loading players: {e}",
-            ephemeral=True
+            f"❌ Error loading players: {e}"
         )
 
 
@@ -279,7 +276,7 @@ async def manage_followed(interaction: discord.Interaction):
     Args:
         interaction: Discord interaction object
     """
-    await interaction.response.defer(ephemeral=True)
+    await interaction.response.defer()
 
     try:
         # Get watchlist (only follow=1 - followed players, ordered by last_updated)
@@ -290,8 +287,7 @@ async def manage_followed(interaction: discord.Interaction):
 
         if not top_5:
             await interaction.followup.send(
-                "No followed players found. Use /top_players to discover players to follow.",
-                ephemeral=True
+                "No followed players found. Use /top_players to discover players to follow."
             )
             return
 
@@ -324,14 +320,12 @@ async def manage_followed(interaction: discord.Interaction):
         # Send embed with view
         await interaction.followup.send(
             embed=embed,
-            view=view,
-            ephemeral=True
+            view=view
         )
 
     except Exception as e:
         await interaction.followup.send(
-            f"❌ Error loading followed players: {e}",
-            ephemeral=True
+            f"❌ Error loading followed players: {e}"
         )
 
 
@@ -585,14 +579,13 @@ async def collect_data(interaction: discord.Interaction):
     Args:
         interaction: Discord interaction object
     """
-    await interaction.response.defer(ephemeral=True)
+    await interaction.response.defer()
 
     try:
         # Send initial message
         await interaction.followup.send(
             "🔄 Starting data collection...\n"
-            "This may take several minutes depending on the number of active servers.",
-            ephemeral=True
+            "This may take several minutes depending on the number of active servers."
         )
 
         # Run the data collection script
@@ -620,8 +613,7 @@ async def collect_data(interaction: discord.Interaction):
             await process.wait()
             await interaction.followup.send(
                 "⏱️ Data collection timed out after 10 minutes.\n"
-                "The process has been terminated.",
-                ephemeral=True
+                "The process has been terminated."
             )
             return
 
@@ -659,12 +651,11 @@ async def collect_data(interaction: discord.Interaction):
 
         embed.set_footer(text=f"Exit code: {process.returncode}")
 
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        await interaction.followup.send(embed=embed)
 
     except Exception as e:
         await interaction.followup.send(
-            f"❌ Error running data collection: {e}",
-            ephemeral=True
+            f"❌ Error running data collection: {e}"
         )
 
 
@@ -675,7 +666,7 @@ async def manage_servers(interaction: discord.Interaction):
     Args:
         interaction: Discord interaction object
     """
-    await interaction.response.defer(ephemeral=True)
+    await interaction.response.defer()
 
     try:
         # Get all servers
@@ -720,14 +711,12 @@ async def manage_servers(interaction: discord.Interaction):
         # Send embed with view
         await interaction.followup.send(
             embed=embed,
-            view=view,
-            ephemeral=True
+            view=view
         )
 
     except Exception as e:
         await interaction.followup.send(
-            f"❌ Error loading servers: {e}",
-            ephemeral=True
+            f"❌ Error loading servers: {e}"
         )
 
 
