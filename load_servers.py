@@ -30,7 +30,7 @@ def load_servers_from_yaml(yaml_file: str = "servers.yaml"):
         url = server.get('url')
         description = server.get('description')
         status = server.get('status')
-        clan = server.get('clan')
+        clan = "empty"
 
         # Validate required fields
         if not all([name, url, description, status, clan]):
