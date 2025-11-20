@@ -3,6 +3,7 @@ import os
 import io
 import json
 import asyncio
+import aiohttp
 import discord
 from discord import app_commands
 from dotenv import load_dotenv
@@ -717,6 +718,102 @@ async def manage_servers(interaction: discord.Interaction):
     except Exception as e:
         await interaction.followup.send(
             f"❌ Error loading servers: {e}"
+        )
+
+
+@bot.tree.command(name="slash", description="Check if followed players are currently online")
+async def slash(interaction: discord.Interaction):
+    """Check which followed players are currently playing on any server.
+
+    Args:
+        interaction: Discord interaction object
+    """
+    await interaction.response.defer()
+
+    try:
+        # Get followed players
+        followed_players = bot.db.get_watchlist(follow_only=True)
+
+        if not followed_players:
+            await interaction.followup.send("No followed players found. Use /top_players to follow players.")
+            return
+
+        # Create lookup dictionary: player_id -> player_name
+        followed_dict = {p['player_id']: p['player_name'] for p in followed_players}
+
+        # Get all servers (user wants all servers, not just active)
+        servers = bot.db.get_all_servers()
+
+        if not servers:
+            await interaction.followup.send("No servers found in database.")
+            return
+
+        await interaction.followup.send(
+            f"🔍 Checking {len(followed_dict)} followed players across {len(servers)} servers...\n"
+            "This may take a moment."
+        )
+
+        # Check each server for online players
+        results = []
+
+        async with aiohttp.ClientSession() as session:
+            for server in servers:
+                try:
+                    # Build API URL
+                    server_url = server['url']
+                    if not server_url.endswith('/'):
+                        server_url += '/'
+                    api_url = f"{server_url}api/get_live_game_stats"
+
+                    # Make request with timeout
+                    async with session.get(api_url, timeout=aiohttp.ClientTimeout(total=10)) as response:
+                        if response.status != 200:
+                            continue
+
+                        data = await response.json()
+
+                        # Parse response - handle different possible structures
+                        player_stats = []
+
+                        if 'result' in data and 'player_stats' in data['result']:
+                            stats_data = data['result']['player_stats']
+
+                            # Handle dict format with teams
+                            if isinstance(stats_data, dict):
+                                for team_name in ['allied', 'axis']:
+                                    if team_name in stats_data:
+                                        for player in stats_data[team_name]:
+                                            player['team'] = team_name
+                                            player_stats.append(player)
+                            # Handle list format
+                            elif isinstance(stats_data, list):
+                                player_stats = stats_data
+
+                        # Check for matches
+                        for player in player_stats:
+                            player_id = player.get('player_id', '')
+                            if player_id in followed_dict:
+                                player_name = followed_dict[player_id]
+                                team = player.get('team', 'unknown')
+                                results.append(f"{server['name']} {player_name} - {team}")
+
+                except asyncio.TimeoutError:
+                    # Skip servers that timeout
+                    continue
+                except Exception as e:
+                    # Skip servers with errors
+                    continue
+
+        # Display results
+        if results:
+            result_text = "**Followed Players Online:**\n" + "\n".join(results)
+            await interaction.followup.send(result_text)
+        else:
+            await interaction.followup.send("No followed players currently online.")
+
+    except Exception as e:
+        await interaction.followup.send(
+            f"❌ Error checking players: {e}"
         )
 
 
