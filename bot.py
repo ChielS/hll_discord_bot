@@ -2,7 +2,7 @@
 import os
 import io
 import json
-import subprocess
+import asyncio
 import discord
 from discord import app_commands
 from dotenv import load_dotenv
@@ -600,23 +600,43 @@ async def collect_data(interaction: discord.Interaction):
         bot_dir = os.path.dirname(os.path.abspath(__file__))
         script_path = os.path.join(bot_dir, "get_data_single_all.py")
 
-        # Run the script using subprocess
-        result = subprocess.run(
-            ["python", script_path],
+        # Run the script asynchronously to avoid blocking the event loop
+        process = await asyncio.create_subprocess_exec(
+            "python", script_path,
             cwd=bot_dir,
-            capture_output=True,
-            text=True,
-            timeout=600  # 10 minute timeout
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
         )
 
+        # Wait for completion with timeout (10 minutes)
+        try:
+            stdout, stderr = await asyncio.wait_for(
+                process.communicate(),
+                timeout=600
+            )
+        except asyncio.TimeoutError:
+            # Kill the process if it times out
+            process.kill()
+            await process.wait()
+            await interaction.followup.send(
+                "⏱️ Data collection timed out after 10 minutes.\n"
+                "The process has been terminated.",
+                ephemeral=True
+            )
+            return
+
+        # Decode output
+        stdout_text = stdout.decode('utf-8') if stdout else ""
+        stderr_text = stderr.decode('utf-8') if stderr else ""
+
         # Parse the output to get summary
-        output_lines = result.stdout.strip().split('\n') if result.stdout else []
-        error_lines = result.stderr.strip().split('\n') if result.stderr else []
+        output_lines = stdout_text.strip().split('\n') if stdout_text else []
+        error_lines = stderr_text.strip().split('\n') if stderr_text else []
 
         # Create response embed
         embed = discord.Embed(
             title="📊 Data Collection Complete",
-            color=discord.Color.green() if result.returncode == 0 else discord.Color.red()
+            color=discord.Color.green() if process.returncode == 0 else discord.Color.red()
         )
 
         # Add summary from last few lines of output
@@ -629,7 +649,7 @@ async def collect_data(interaction: discord.Interaction):
             )
 
         # Add errors if any
-        if result.returncode != 0 and error_lines:
+        if process.returncode != 0 and error_lines:
             error_msg = "\n".join(error_lines[-5:])  # Last 5 error lines
             embed.add_field(
                 name="❌ Errors",
@@ -637,16 +657,10 @@ async def collect_data(interaction: discord.Interaction):
                 inline=False
             )
 
-        embed.set_footer(text=f"Exit code: {result.returncode}")
+        embed.set_footer(text=f"Exit code: {process.returncode}")
 
         await interaction.followup.send(embed=embed, ephemeral=True)
 
-    except subprocess.TimeoutExpired:
-        await interaction.followup.send(
-            "⏱️ Data collection timed out after 10 minutes.\n"
-            "The process may still be running in the background.",
-            ephemeral=True
-        )
     except Exception as e:
         await interaction.followup.send(
             f"❌ Error running data collection: {e}",
