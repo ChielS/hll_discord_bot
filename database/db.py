@@ -1,4 +1,4 @@
-"""SQLite database operations for greeting statistics."""
+"""SQLite database operations for Hell Let Loose Discord bot."""
 import sqlite3
 from datetime import datetime
 from pathlib import Path
@@ -24,15 +24,6 @@ class Database:
         """Initialize the database with required tables."""
         conn = self.get_connection()
         cursor = conn.cursor()
-
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS greeting_stats (
-                user_id INTEGER PRIMARY KEY,
-                username TEXT NOT NULL,
-                greeting_count INTEGER DEFAULT 0,
-                last_greeted TIMESTAMP
-            )
-        """)
 
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS servers (
@@ -180,101 +171,6 @@ class Database:
 
         conn.commit()
         conn.close()
-
-    def increment_greeting(self, user_id: int, username: str):
-        """Increment the greeting count for a user.
-
-        Args:
-            user_id: Discord user ID
-            username: Discord username
-
-        Returns:
-            The new greeting count for the user
-        """
-        conn = self.get_connection()
-        cursor = conn.cursor()
-
-        # Check if user exists
-        cursor.execute("SELECT greeting_count FROM greeting_stats WHERE user_id = ?", (user_id,))
-        result = cursor.fetchone()
-
-        if result:
-            # Update existing user
-            new_count = result[0] + 1
-            cursor.execute("""
-                UPDATE greeting_stats
-                SET greeting_count = ?, last_greeted = ?, username = ?
-                WHERE user_id = ?
-            """, (new_count, datetime.now(), username, user_id))
-        else:
-            # Insert new user
-            new_count = 1
-            cursor.execute("""
-                INSERT INTO greeting_stats (user_id, username, greeting_count, last_greeted)
-                VALUES (?, ?, ?, ?)
-            """, (user_id, username, new_count, datetime.now()))
-
-        conn.commit()
-        conn.close()
-
-        return new_count
-
-    def get_user_stats(self, user_id: int):
-        """Get greeting statistics for a user.
-
-        Args:
-            user_id: Discord user ID
-
-        Returns:
-            Dictionary with user stats or None if user not found
-        """
-        conn = self.get_connection()
-        cursor = conn.cursor()
-
-        cursor.execute("""
-            SELECT username, greeting_count, last_greeted
-            FROM greeting_stats
-            WHERE user_id = ?
-        """, (user_id,))
-
-        result = cursor.fetchone()
-        conn.close()
-
-        if result:
-            return {
-                "username": result[0],
-                "greeting_count": result[1],
-                "last_greeted": result[2]
-            }
-        return None
-
-    def get_all_stats(self):
-        """Get greeting statistics for all users.
-
-        Returns:
-            List of dictionaries with user stats
-        """
-        conn = self.get_connection()
-        cursor = conn.cursor()
-
-        cursor.execute("""
-            SELECT user_id, username, greeting_count, last_greeted
-            FROM greeting_stats
-            ORDER BY greeting_count DESC
-        """)
-
-        results = cursor.fetchall()
-        conn.close()
-
-        return [
-            {
-                "user_id": row[0],
-                "username": row[1],
-                "greeting_count": row[2],
-                "last_greeted": row[3]
-            }
-            for row in results
-        ]
 
     # Server management methods
 
@@ -671,11 +567,12 @@ class Database:
 
     # Player watchlist methods
 
-    def get_watchlist(self, follow_only: bool = False):
+    def get_watchlist(self, follow_only: bool = False, order_by_updated: bool = False):
         """Get all players in the watchlist.
 
         Args:
             follow_only: If True, only return players with follow=1
+            order_by_updated: If True, order by last_updated DESC (most recent first)
 
         Returns:
             List of dictionaries with player watchlist data
@@ -683,20 +580,26 @@ class Database:
         conn = self.get_connection()
         cursor = conn.cursor()
 
+        # Determine ORDER BY clause
+        if order_by_updated:
+            order_clause = "ORDER BY last_updated DESC"
+        else:
+            order_clause = "ORDER BY mean_combat DESC"
+
         if follow_only:
-            query = """
+            query = f"""
                 SELECT player_id, player_name, mean_kd, mean_kpm, mean_combat,
                        number_of_games, follow, last_updated
                 FROM player_watchlist
                 WHERE follow = 1
-                ORDER BY mean_combat DESC
+                {order_clause}
             """
         else:
-            query = """
+            query = f"""
                 SELECT player_id, player_name, mean_kd, mean_kpm, mean_combat,
                        number_of_games, follow, last_updated
                 FROM player_watchlist
-                ORDER BY mean_combat DESC
+                {order_clause}
             """
 
         cursor.execute(query)
@@ -732,9 +635,10 @@ class Database:
 
         follow_value = 1 if follow else 0
 
+        # Update follow status and last_updated timestamp
         cursor.execute("""
             UPDATE player_watchlist
-            SET follow = ?
+            SET follow = ?, last_updated = datetime('now')
             WHERE player_id = ?
         """, (follow_value, player_id))
 
@@ -756,9 +660,10 @@ class Database:
         conn = self.get_connection()
         cursor = conn.cursor()
 
+        # Update follow status to NULL and update last_updated timestamp
         cursor.execute("""
             UPDATE player_watchlist
-            SET follow = NULL
+            SET follow = NULL, last_updated = datetime('now')
             WHERE player_id = ?
         """, (player_id,))
 

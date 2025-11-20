@@ -3,104 +3,36 @@ servers:
     url: https://crows-stats.hlladmin.com/
     description: Crow Server
     status: skip
-    clan: crow
-  - name: hell_eu_1
-    url: http://208.115.214.29:7012/
-    description: HELL EU League Server 1
-    status: skip
-    clan: competition
-  - name: hell_eu_2
-    url: http://208.115.214.29:7010/
-    description: HELL EU League Server 2
-    status: skip
-    clan: competition
-  - name: hell_eu_3
-    url: http://208.115.214.29:7014/
-    description: HELL EU League Server 3
-    status: skip
-    clan: competition
-  - name: hell_eu_4
-    url: http://208.115.214.29:7016/
-    description: HELL EU League Server 4
-    status: skip
-    clan: competition
   - name: dbd
     url: https://dbdhll-stats.hlladmin.com/
     description: DBD 24/7 Warfare
     status: skip
-    clan: dbd
-  - name: krrc_event
-    url: https://events.krrc.online/
-    description: KRRC | Private Event
-    status: skip
-    clan: krrc
-  - name: trr_event
-    url: https://trr-stats.hlladmin.com/
-    description: TRR Events | Warfare Only
-    status: skip
-    clan: trr
-  - name: sas_event
-    url: https://sas-events-stats.hlladmin.com/
-    description: SAS Clan | Event Server
-    status: skip
-    clan: sas
   - name: dlb
     url: https://dlbnl-stats.hlladmin.com/
     description: Dutch Lions Brigade [NL/BE] lvl 30+
     status: skip
-    clan: dlb
   - name: rofs
     url: https://us.stats.rofs.info/
     description: ROFS|USWEST
     status: skip
-    clan: rofs
   - name: rdg
     url: https://stats.rdg-clan.co.uk/
     description: RDG | Warfare 24/7
     status: skip
-    clan: rdg
-  - name: merc
-    url: http://152.53.106.66:7010/
-    description: merc clan server
-    status: skip
-    clan: merc
   - name: sas_public
     url: https://api.sas-public.com/
     description: SAS Public Server
     status: skip
-    clan: sas
   - name: krrc_public
     url: https://stats.krrc.online/
     description: KRRC | Warfare+Offensive
     status: skip
-    clan: krrc
   - name: trr_public
     url: https://trr-stats.hlladmin.com/
     description: TRR | Warfare Only
     status: skip
-    clan: trr
   - name: fin
     url: http://65.109.128.186:1110/
     description: HLL FINLAND
     status: active
-    clan: fin
-  - name: taco
-    url: http://208.115.226.221:55834/
-    description: taco server
-    status: skip
-    clan: taco
-  - name: lgn
-    url: http://84.247.188.205:7010/
-    description: Legion Gaming Network
-    status: skip
-    clan: lgn
-  - name: tpl_1
-    url: http://tpl1.thepremierleagueofhll.ca:7016/
-    description: TPL 1
-    status: skip
-    clan: competition
-  - name: tpl_2
-    url: http://tpl2.thepremierleagueofhll.ca:4014/
-    description: TPL 2
-    status: skip
-    clan: competition
+  

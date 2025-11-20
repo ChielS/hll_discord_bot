@@ -1,7 +1,8 @@
 """Discord bot for Hell Let Loose - Main entry point."""
 import os
 import io
-import yaml
+import json
+import subprocess
 import discord
 from discord import app_commands
 from dotenv import load_dotenv
@@ -44,55 +45,135 @@ class HLLBot(discord.Client):
 bot = HLLBot()
 
 
-@bot.tree.command(name="hello", description="Greet the bot and get a friendly response!")
-async def hello(interaction: discord.Interaction):
-    """Slash command to greet the bot.
+class TopPlayersView(discord.ui.View):
+    """View for displaying and updating top players."""
 
-    Args:
-        interaction: Discord interaction object
-    """
-    user = interaction.user
-    user_id = user.id
-    username = user.name
+    def __init__(self, players: list, kpi: str, kpi_name: str, min_games: int):
+        """Initialize the view with player data.
 
-    # Increment greeting count in database
-    greeting_count = bot.db.increment_greeting(user_id, username)
+        Args:
+            players: List of player dictionaries with stats
+            kpi: KPI identifier (kpm, kd, combat)
+            kpi_name: Display name of the KPI
+            min_games: Minimum games filter
+        """
+        super().__init__(timeout=300)  # 5 minute timeout
+        self.players = players
+        self.kpi = kpi
+        self.kpi_name = kpi_name
+        self.min_games = min_games
 
-    # Create response message
-    if greeting_count == 1:
-        response = f"Hello {username}! Nice to meet you for the first time! 👋"
-    else:
-        response = f"Hello {username}! This is greeting number {greeting_count} from you! 👋"
+        # Add 3 buttons for each player (max 5 players = 15 buttons)
+        for idx, player in enumerate(players[:5], 1):
+            current_follow = player['follow']
 
-    await interaction.response.send_message(response)
+            # Truncate player name if too long (Discord button label limit is 80 chars)
+            player_name = player['player_name'][:25] if len(player['player_name']) > 25 else player['player_name']
+
+            # Follow button (green, disabled if currently following)
+            follow_btn = discord.ui.Button(
+                label=f"Follow {player_name}",
+                style=discord.ButtonStyle.success,
+                custom_id=f"follow_{player['player_id']}",
+                disabled=(current_follow == 1),
+                row=idx - 1
+            )
+            follow_btn.callback = lambda i, p=player: self.button_callback(i, p, "follow")
+            self.add_item(follow_btn)
+
+            # Unfollow button (red, disabled if currently unfollowed)
+            unfollow_btn = discord.ui.Button(
+                label=f"Unfollow {player_name}",
+                style=discord.ButtonStyle.danger,
+                custom_id=f"unfollow_{player['player_id']}",
+                disabled=(current_follow == 0),
+                row=idx - 1
+            )
+            unfollow_btn.callback = lambda i, p=player: self.button_callback(i, p, "unfollow")
+            self.add_item(unfollow_btn)
+
+            # Clear button (gray, disabled if currently null)
+            clear_btn = discord.ui.Button(
+                label=f"Clear {player_name}",
+                style=discord.ButtonStyle.secondary,
+                custom_id=f"clear_{player['player_id']}",
+                disabled=(current_follow is None),
+                row=idx - 1
+            )
+            clear_btn.callback = lambda i, p=player: self.button_callback(i, p, "clear")
+            self.add_item(clear_btn)
+
+    async def button_callback(self, interaction: discord.Interaction, player: dict, action: str):
+        """Handle button click.
+
+        Args:
+            interaction: Discord interaction
+            player: Player data dictionary
+            action: Action to perform (follow, unfollow, clear)
+        """
+        try:
+            # Update database
+            if action == "follow":
+                success = bot.db.set_player_follow(player['player_id'], True)
+                status_text = "now following"
+                new_follow_status = 1
+            elif action == "unfollow":
+                success = bot.db.set_player_follow(player['player_id'], False)
+                status_text = "unfollowed"
+                new_follow_status = 0
+            else:  # clear
+                success = bot.db.clear_player_follow(player['player_id'])
+                status_text = "status cleared"
+                new_follow_status = None
+
+            if success:
+                # Update button states
+                player['follow'] = new_follow_status
+
+                # Rebuild view with updated button states
+                for item in self.children:
+                    if isinstance(item, discord.ui.Button):
+                        # Check if this button belongs to the updated player
+                        if player['player_id'] in item.custom_id:
+                            if 'follow_' in item.custom_id and action == 'follow':
+                                item.disabled = True
+                            elif 'follow_' in item.custom_id:
+                                item.disabled = False
+
+                            if 'unfollow_' in item.custom_id and action == 'unfollow':
+                                item.disabled = True
+                            elif 'unfollow_' in item.custom_id:
+                                item.disabled = False
+
+                            if 'clear_' in item.custom_id and action == 'clear':
+                                item.disabled = True
+                            elif 'clear_' in item.custom_id:
+                                item.disabled = False
+
+                # Update the message with new button states
+                await interaction.response.edit_message(view=self)
+
+                # Send confirmation
+                await interaction.followup.send(
+                    f"✅ **{player['player_name']}** {status_text}",
+                    ephemeral=True
+                )
+            else:
+                await interaction.response.send_message(
+                    f"⚠️ Player not found in database",
+                    ephemeral=True
+                )
+
+        except Exception as e:
+            await interaction.response.send_message(
+                f"❌ Error updating player: {e}",
+                ephemeral=True
+            )
 
 
-@bot.tree.command(name="stats", description="View your greeting statistics")
-async def stats(interaction: discord.Interaction):
-    """Slash command to view greeting statistics.
-
-    Args:
-        interaction: Discord interaction object
-    """
-    user_id = interaction.user.id
-    user_stats = bot.db.get_user_stats(user_id)
-
-    if user_stats:
-        response = (
-            f"📊 **Your Greeting Stats**\n"
-            f"Total greetings: {user_stats['greeting_count']}\n"
-            f"Last greeted: {user_stats['last_greeted']}"
-        )
-    else:
-        response = "You haven't greeted me yet! Use `/hello` to say hi! 👋"
-
-    await interaction.response.send_message(response, ephemeral=True)
-
-
-@bot.tree.command(name="top_players", description="Get top N players by KPI (returns YAML file)")
+@bot.tree.command(name="top_players", description="Discover top neutral players by KPI")
 @app_commands.describe(
     kpi="Select ranking metric: kpm (kills per minute), kd (kill/death ratio), or combat (combat score)",
-    limit="Number of top players to return (default: 50)",
     min_games="Minimum number of games played (default: 3)"
 )
 @app_commands.choices(kpi=[
@@ -100,157 +181,482 @@ async def stats(interaction: discord.Interaction):
     app_commands.Choice(name="Kill/Death Ratio (K/D)", value="kd"),
     app_commands.Choice(name="Combat Score", value="combat")
 ])
-async def top_players(interaction: discord.Interaction, kpi: str, limit: int = 50, min_games: int = 3):
-    """Get top N players by KPI as YAML file.
+async def top_players(interaction: discord.Interaction, kpi: str, min_games: int = 3):
+    """View and follow top 5 neutral players by KPI (only shows untracked players).
 
     Args:
         interaction: Discord interaction object
         kpi: The KPI to rank by (kpm, kd, combat)
-        limit: Number of players to return
         min_games: Minimum number of games played
     """
     await interaction.response.defer(ephemeral=True)
 
     try:
-        # Get watchlist (only follow=NULL or follow=1)
+        # Get watchlist (only follow=NULL - neutral players)
         all_players = bot.db.get_watchlist(follow_only=False)
 
-        # Filter to only include follow=NULL or follow=1, and minimum games
+        # Filter to only include follow=NULL and minimum games
         filtered_players = [
             p for p in all_players
-            if (p['follow'] is None or p['follow'] == 1) and p['number_of_games'] >= min_games
+            if p['follow'] is None and p['number_of_games'] >= min_games
         ]
 
         # Sort by the requested KPI
         if kpi == "kpm":
             sorted_players = sorted(filtered_players, key=lambda x: x['mean_kpm'] or 0, reverse=True)
-            kpi_name = "Kills Per Minute"
+            kpi_name = "Kills Per Minute (KPM)"
+            kpi_emoji = "🔫"
         elif kpi == "kd":
             sorted_players = sorted(filtered_players, key=lambda x: x['mean_kd'] or 0, reverse=True)
-            kpi_name = "Kill/Death Ratio"
+            kpi_name = "Kill/Death Ratio (K/D)"
+            kpi_emoji = "⚔️"
         else:  # combat
             sorted_players = sorted(filtered_players, key=lambda x: x['mean_combat'] or 0, reverse=True)
             kpi_name = "Combat Score"
+            kpi_emoji = "🎯"
 
-        # Take top N
-        top_n = sorted_players[:limit]
+        # Take top 5 only
+        top_5 = sorted_players[:5]
 
-        if not top_n:
-            await interaction.followup.send("No players found in watchlist.", ephemeral=True)
+        if not top_5:
+            await interaction.followup.send(
+                "No neutral players found matching criteria. All top players may already be tracked.",
+                ephemeral=True
+            )
             return
 
-        # Create YAML data
-        yaml_data = {
-            "ranking_type": kpi_name,
-            "total_players": len(top_n),
-            "min_games_filter": min_games,
-            "instructions": "Edit the 'follow' field for any player (true/false/null), then upload this file using /update_watchlist",
-            "players": []
-        }
+        # Create embed with condensed table format
+        embed = discord.Embed(
+            title=f"{kpi_emoji} Top Players - {kpi_name}",
+            color=discord.Color.blue()
+        )
 
-        for idx, player in enumerate(top_n, 1):
-            player_data = {
-                "rank": idx,
-                "player_id": player['player_id'],
-                "player_name": player['player_name'],
-                "number_of_games": player['number_of_games'],
-                "mean_kpm": float(player['mean_kpm']) if player['mean_kpm'] else None,
-                "mean_kd": float(player['mean_kd']) if player['mean_kd'] else None,
-                "mean_combat": float(player['mean_combat']) if player['mean_combat'] else None,
-                "follow": True if player['follow'] == 1 else False if player['follow'] == 0 else None
-            }
-            yaml_data['players'].append(player_data)
+        # Build condensed list
+        player_lines = []
+        for idx, player in enumerate(top_5, 1):
+            # Follow status indicator
+            if player['follow'] == 1:
+                status = "✓"
+            elif player['follow'] == 0:
+                status = "✗"
+            else:
+                status = "○"
 
-        # Convert to YAML
-        yaml_str = yaml.dump(yaml_data, default_flow_style=False, sort_keys=False, allow_unicode=True)
+            # Format stats
+            kpm = f"{player['mean_kpm']:.3f}" if player['mean_kpm'] else "N/A"
+            kd = f"{player['mean_kd']:.2f}" if player['mean_kd'] else "N/A"
+            combat = f"{player['mean_combat']:.1f}" if player['mean_combat'] else "N/A"
 
-        # Create file
-        file_content = io.BytesIO(yaml_str.encode('utf-8'))
-        file_content.seek(0)
+            # Create condensed line
+            line = f"**#{idx} {player['player_name']}** | {status} | Games: {player['number_of_games']} | KPM: {kpm} | K/D: {kd} | Combat: {combat}"
+            player_lines.append(line)
 
-        filename = f"top_{limit}_{kpi}_players.yaml"
-        file = discord.File(file_content, filename=filename)
+        # Set description with all players
+        embed.description = "\n\n".join(player_lines)
+        embed.set_footer(text=f"Min games: {min_games} • Click buttons to update • Active button is disabled")
 
+        # Create view with buttons
+        view = TopPlayersView(top_5, kpi, kpi_name, min_games)
+
+        # Send embed with view
         await interaction.followup.send(
-            f"📊 Top {len(top_n)} players by {kpi_name}\n"
-            f"📈 Minimum games: {min_games}",
-            file=file,
+            embed=embed,
+            view=view,
             ephemeral=True
         )
 
     except Exception as e:
-        await interaction.followup.send(f"Error generating player list: {e}", ephemeral=True)
+        await interaction.followup.send(
+            f"❌ Error loading players: {e}",
+            ephemeral=True
+        )
 
 
-@bot.tree.command(name="update_watchlist", description="Update player follow status from YAML file")
-@app_commands.describe(
-    file="The YAML file with updated follow status"
-)
-async def update_watchlist(interaction: discord.Interaction, file: discord.Attachment):
-    """Update watchlist from uploaded YAML file.
+@bot.tree.command(name="manage_followed", description="Manage followed players (sorted by when followed)")
+async def manage_followed(interaction: discord.Interaction):
+    """View and manage followed players (sorted by most recently followed).
 
     Args:
         interaction: Discord interaction object
-        file: The uploaded YAML file
     """
     await interaction.response.defer(ephemeral=True)
 
     try:
-        # Check file extension
-        if not file.filename.endswith(('.yaml', '.yml')):
-            await interaction.followup.send("❌ Please upload a YAML file (.yaml or .yml)", ephemeral=True)
+        # Get watchlist (only follow=1 - followed players, ordered by last_updated)
+        all_players = bot.db.get_watchlist(follow_only=True, order_by_updated=True)
+
+        # Take top 5 only
+        top_5 = all_players[:5]
+
+        if not top_5:
+            await interaction.followup.send(
+                "No followed players found. Use /top_players to discover players to follow.",
+                ephemeral=True
+            )
             return
 
-        # Download and parse YAML
-        file_content = await file.read()
-        yaml_data = yaml.safe_load(file_content.decode('utf-8'))
+        # Create embed with condensed table format
+        embed = discord.Embed(
+            title="⭐ Followed Players",
+            description="Sorted by most recently updated",
+            color=discord.Color.green()
+        )
 
-        if 'players' not in yaml_data:
-            await interaction.followup.send("❌ Invalid YAML format: 'players' key not found", ephemeral=True)
-            return
+        # Build condensed list
+        player_lines = []
+        for idx, player in enumerate(top_5, 1):
+            # Format stats
+            kpm = f"{player['mean_kpm']:.3f}" if player['mean_kpm'] else "N/A"
+            kd = f"{player['mean_kd']:.2f}" if player['mean_kd'] else "N/A"
+            combat = f"{player['mean_combat']:.1f}" if player['mean_combat'] else "N/A"
 
-        # Update database
-        updated_count = 0
-        errors = []
+            # Create condensed line (all followed, so status is always ✓)
+            line = f"**#{idx} {player['player_name']}** | ✓ | Games: {player['number_of_games']} | KPM: {kpm} | K/D: {kd} | Combat: {combat}"
+            player_lines.append(line)
 
-        for player in yaml_data['players']:
-            player_id = player.get('player_id')
-            follow_value = player.get('follow')
+        # Set description with all players
+        embed.description = "\n\n".join(player_lines)
+        embed.set_footer(text="Showing 5 most recently updated • Click buttons to update")
 
-            if not player_id:
-                continue
+        # Create view with buttons (pass dummy kpi values since not used)
+        view = TopPlayersView(top_5, "combat", "Combat Score", 0)
 
-            try:
-                if follow_value is None:
-                    # Clear follow status
-                    if bot.db.clear_player_follow(player_id):
-                        updated_count += 1
-                else:
-                    # Set follow status (True or False)
-                    if bot.db.set_player_follow(player_id, follow_value):
-                        updated_count += 1
-            except Exception as e:
-                errors.append(f"Error updating {player_id}: {e}")
+        # Send embed with view
+        await interaction.followup.send(
+            embed=embed,
+            view=view,
+            ephemeral=True
+        )
 
-        # Send response
-        response = f"✅ Updated {updated_count} players in watchlist"
-        if errors:
-            error_msg = "\n".join(errors[:5])  # Show first 5 errors
-            response += f"\n\n⚠️ Errors:\n{error_msg}"
-            if len(errors) > 5:
-                response += f"\n... and {len(errors) - 5} more errors"
-
-        await interaction.followup.send(response, ephemeral=True)
-
-    except yaml.YAMLError as e:
-        await interaction.followup.send(f"❌ Invalid YAML file: {e}", ephemeral=True)
     except Exception as e:
-        await interaction.followup.send(f"❌ Error updating watchlist: {e}", ephemeral=True)
+        await interaction.followup.send(
+            f"❌ Error loading followed players: {e}",
+            ephemeral=True
+        )
 
 
-@bot.tree.command(name="get_servers", description="Get all servers as YAML file")
-async def get_servers(interaction: discord.Interaction):
-    """Get all servers as YAML file for editing.
+class ServerCreateModal(discord.ui.Modal, title="Create New Server"):
+    """Modal for creating a new server."""
+
+    name = discord.ui.TextInput(
+        label="Server Name",
+        placeholder="e.g., fin",
+        max_length=50,
+        required=True
+    )
+
+    url = discord.ui.TextInput(
+        label="Server URL",
+        placeholder="http://example.com:1110/",
+        max_length=200,
+        required=True
+    )
+
+    description = discord.ui.TextInput(
+        label="Description",
+        placeholder="e.g., HLL FINLAND",
+        max_length=100,
+        required=True
+    )
+
+    status = discord.ui.TextInput(
+        label="Status (active/skip)",
+        placeholder="active or skip",
+        default="skip",
+        max_length=10,
+        required=True
+    )
+
+    async def on_submit(self, interaction: discord.Interaction):
+        """Handle modal submission."""
+        try:
+            # Validate status
+            status_value = self.status.value.strip().lower()
+            if status_value not in ['active', 'skip']:
+                await interaction.response.send_message(
+                    "❌ Status must be 'active' or 'skip'",
+                    ephemeral=True
+                )
+                return
+
+            # Add server to database
+            bot.db.add_server(
+                self.name.value.strip(),
+                self.url.value.strip(),
+                self.description.value.strip(),
+                status_value,
+                ""
+            )
+
+            await interaction.response.send_message(
+                f"✅ Server **{self.name.value}** created successfully!",
+                ephemeral=True
+            )
+
+        except Exception as e:
+            await interaction.response.send_message(
+                f"❌ Error creating server: {e}",
+                ephemeral=True
+            )
+
+
+class ServerUpdateModal(discord.ui.Modal, title="Update Server"):
+    """Modal for updating a server."""
+
+    def __init__(self, server: dict):
+        super().__init__()
+        self.server_name = server['name']
+
+        # Pre-fill with current values
+        self.url = discord.ui.TextInput(
+            label="Server URL",
+            default=server['url'],
+            max_length=200,
+            required=True
+        )
+        self.add_item(self.url)
+
+        self.description = discord.ui.TextInput(
+            label="Description",
+            default=server['description'],
+            max_length=100,
+            required=True
+        )
+        self.add_item(self.description)
+
+        self.status = discord.ui.TextInput(
+            label="Status (active/skip)",
+            default=server['status'],
+            max_length=10,
+            required=True
+        )
+        self.add_item(self.status)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        """Handle modal submission."""
+        try:
+            # Validate status
+            status_value = self.status.value.strip().lower()
+            if status_value not in ['active', 'skip']:
+                await interaction.response.send_message(
+                    "❌ Status must be 'active' or 'skip'",
+                    ephemeral=True
+                )
+                return
+
+            # Update server (need to update the add_server method to handle updates)
+            bot.db.add_server(
+                self.server_name,
+                self.url.value.strip(),
+                self.description.value.strip(),
+                status_value,
+                ""
+            )
+
+            await interaction.response.send_message(
+                f"✅ Server **{self.server_name}** updated successfully!",
+                ephemeral=True
+            )
+
+        except Exception as e:
+            await interaction.response.send_message(
+                f"❌ Error updating server: {e}",
+                ephemeral=True
+            )
+
+
+class ServerManagementView(discord.ui.View):
+    """View for managing servers."""
+
+    def __init__(self, servers: list):
+        super().__init__(timeout=300)
+        self.servers = {s['name']: s for s in servers}
+
+        # Add server selection dropdown (max 25 options)
+        if servers:
+            options = [
+                discord.SelectOption(
+                    label=f"{s['name'][:80]}",
+                    description=f"{s['status']} | {s['description'][:80]}",
+                    value=s['name']
+                )
+                for s in servers[:25]
+            ]
+
+            select = discord.ui.Select(
+                placeholder="Select a server to update or delete...",
+                options=options,
+                custom_id="server_select"
+            )
+            select.callback = self.select_callback
+            self.add_item(select)
+
+        # Add Create button
+        create_btn = discord.ui.Button(
+            label="Create New Server",
+            style=discord.ButtonStyle.success,
+            custom_id="create_server"
+        )
+        create_btn.callback = self.create_callback
+        self.add_item(create_btn)
+
+    async def select_callback(self, interaction: discord.Interaction):
+        """Handle server selection."""
+        server_name = interaction.data['values'][0]
+        server = self.servers.get(server_name)
+
+        if not server:
+            await interaction.response.send_message(
+                "❌ Server not found",
+                ephemeral=True
+            )
+            return
+
+        # Create view with Update and Delete buttons
+        view = discord.ui.View(timeout=60)
+
+        update_btn = discord.ui.Button(
+            label=f"Update {server_name}",
+            style=discord.ButtonStyle.primary
+        )
+        update_btn.callback = lambda i: self.update_callback(i, server)
+        view.add_item(update_btn)
+
+        delete_btn = discord.ui.Button(
+            label=f"Delete {server_name}",
+            style=discord.ButtonStyle.danger
+        )
+        delete_btn.callback = lambda i: self.delete_callback(i, server)
+        view.add_item(delete_btn)
+
+        await interaction.response.send_message(
+            f"**{server['name']}**\n"
+            f"📍 URL: {server['url']}\n"
+            f"📝 Description: {server['description']}\n"
+            f"🔧 Status: {server['status']}\n\n"
+            f"What would you like to do?",
+            view=view,
+            ephemeral=True
+        )
+
+    async def create_callback(self, interaction: discord.Interaction):
+        """Handle create button click."""
+        modal = ServerCreateModal()
+        await interaction.response.send_modal(modal)
+
+    async def update_callback(self, interaction: discord.Interaction, server: dict):
+        """Handle update button click."""
+        modal = ServerUpdateModal(server)
+        await interaction.response.send_modal(modal)
+
+    async def delete_callback(self, interaction: discord.Interaction, server: dict):
+        """Handle delete button click."""
+        try:
+            # Delete server from database (need to add delete method)
+            conn = bot.db.get_connection()
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM servers WHERE name = ?", (server['name'],))
+            rows_affected = cursor.rowcount
+            conn.commit()
+            conn.close()
+
+            if rows_affected > 0:
+                await interaction.response.send_message(
+                    f"✅ Server **{server['name']}** deleted successfully!",
+                    ephemeral=True
+                )
+            else:
+                await interaction.response.send_message(
+                    f"⚠️ Server **{server['name']}** not found",
+                    ephemeral=True
+                )
+
+        except Exception as e:
+            await interaction.response.send_message(
+                f"❌ Error deleting server: {e}",
+                ephemeral=True
+            )
+
+
+@bot.tree.command(name="collect_data", description="Run data collection from active servers")
+async def collect_data(interaction: discord.Interaction):
+    """Trigger data collection script.
+
+    Args:
+        interaction: Discord interaction object
+    """
+    await interaction.response.defer(ephemeral=True)
+
+    try:
+        # Send initial message
+        await interaction.followup.send(
+            "🔄 Starting data collection...\n"
+            "This may take several minutes depending on the number of active servers.",
+            ephemeral=True
+        )
+
+        # Run the data collection script
+        # Get the directory where bot.py is located
+        bot_dir = os.path.dirname(os.path.abspath(__file__))
+        script_path = os.path.join(bot_dir, "get_data_single_all.py")
+
+        # Run the script using subprocess
+        result = subprocess.run(
+            ["python", script_path],
+            cwd=bot_dir,
+            capture_output=True,
+            text=True,
+            timeout=600  # 10 minute timeout
+        )
+
+        # Parse the output to get summary
+        output_lines = result.stdout.strip().split('\n') if result.stdout else []
+        error_lines = result.stderr.strip().split('\n') if result.stderr else []
+
+        # Create response embed
+        embed = discord.Embed(
+            title="📊 Data Collection Complete",
+            color=discord.Color.green() if result.returncode == 0 else discord.Color.red()
+        )
+
+        # Add summary from last few lines of output
+        if output_lines:
+            summary = "\n".join(output_lines[-10:])  # Last 10 lines
+            embed.add_field(
+                name="Summary",
+                value=f"```\n{summary[:1000]}\n```",
+                inline=False
+            )
+
+        # Add errors if any
+        if result.returncode != 0 and error_lines:
+            error_msg = "\n".join(error_lines[-5:])  # Last 5 error lines
+            embed.add_field(
+                name="❌ Errors",
+                value=f"```\n{error_msg[:1000]}\n```",
+                inline=False
+            )
+
+        embed.set_footer(text=f"Exit code: {result.returncode}")
+
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
+    except subprocess.TimeoutExpired:
+        await interaction.followup.send(
+            "⏱️ Data collection timed out after 10 minutes.\n"
+            "The process may still be running in the background.",
+            ephemeral=True
+        )
+    except Exception as e:
+        await interaction.followup.send(
+            f"❌ Error running data collection: {e}",
+            ephemeral=True
+        )
+
+
+@bot.tree.command(name="manage_servers", description="Manage servers (create, update, delete)")
+async def manage_servers(interaction: discord.Interaction):
+    """Manage servers using interactive interface.
 
     Args:
         interaction: Discord interaction object
@@ -261,122 +667,54 @@ async def get_servers(interaction: discord.Interaction):
         # Get all servers
         servers = bot.db.get_all_servers()
 
-        if not servers:
-            await interaction.followup.send("No servers found in database.", ephemeral=True)
-            return
+        # Create embed with server list
+        embed = discord.Embed(
+            title="🖥️ Server Management",
+            description=f"Total servers: **{len(servers)}**",
+            color=discord.Color.blue()
+        )
 
-        # Create YAML data
-        yaml_data = {
-            "total_servers": len(servers),
-            "instructions": "Edit the 'status' field for any server (active/skip), then upload this file using /update_servers",
-            "status_options": ["active", "skip"],
-            "servers": []
-        }
+        # Add server summary
+        active_count = sum(1 for s in servers if s['status'] == 'active')
+        skip_count = len(servers) - active_count
 
-        for server in servers:
-            server_data = {
-                "name": server['name'],
-                "url": server['url'],
-                "description": server['description'],
-                "status": server['status'],
-                "clan": server['clan']
-            }
-            yaml_data['servers'].append(server_data)
+        embed.add_field(
+            name="Status Summary",
+            value=f"✅ Active: {active_count}\n⏭️ Skip: {skip_count}",
+            inline=False
+        )
 
-        # Convert to YAML
-        yaml_str = yaml.dump(yaml_data, default_flow_style=False, sort_keys=False, allow_unicode=True)
+        # Show first 10 servers in embed
+        if servers:
+            server_list = []
+            for server in servers[:10]:
+                status_emoji = "✅" if server['status'] == 'active' else "⏭️"
+                server_list.append(f"{status_emoji} **{server['name']}** - {server['description']}")
 
-        # Create file
-        file_content = io.BytesIO(yaml_str.encode('utf-8'))
-        file_content.seek(0)
+            embed.add_field(
+                name="Servers (showing first 10)",
+                value="\n".join(server_list),
+                inline=False
+            )
 
-        filename = "servers.yaml"
-        file = discord.File(file_content, filename=filename)
+            if len(servers) > 10:
+                embed.set_footer(text=f"... and {len(servers) - 10} more servers")
 
+        # Create view
+        view = ServerManagementView(servers)
+
+        # Send embed with view
         await interaction.followup.send(
-            f"🖥️ All {len(servers)} servers\n\nEdit the `status` field (active/skip) and upload using `/update_servers`",
-            file=file,
+            embed=embed,
+            view=view,
             ephemeral=True
         )
 
     except Exception as e:
-        await interaction.followup.send(f"Error generating server list: {e}", ephemeral=True)
-
-
-@bot.tree.command(name="update_servers", description="Update server status from YAML file")
-@app_commands.describe(
-    file="The YAML file with updated server status"
-)
-async def update_servers(interaction: discord.Interaction, file: discord.Attachment):
-    """Update server status from uploaded YAML file.
-
-    Args:
-        interaction: Discord interaction object
-        file: The uploaded YAML file
-    """
-    await interaction.response.defer(ephemeral=True)
-
-    try:
-        # Check file extension
-        if not file.filename.endswith(('.yaml', '.yml')):
-            await interaction.followup.send("❌ Please upload a YAML file (.yaml or .yml)", ephemeral=True)
-            return
-
-        # Download and parse YAML
-        file_content = await file.read()
-        yaml_data = yaml.safe_load(file_content.decode('utf-8'))
-
-        if 'servers' not in yaml_data:
-            await interaction.followup.send("❌ Invalid YAML format: 'servers' key not found", ephemeral=True)
-            return
-
-        # Update database
-        updated_count = 0
-        errors = []
-        active_count = 0
-        skip_count = 0
-
-        for server in yaml_data['servers']:
-            server_name = server.get('name')
-            status = server.get('status')
-
-            if not server_name or not status:
-                continue
-
-            # Validate status
-            if status not in ['active', 'skip']:
-                errors.append(f"Invalid status for {server_name}: {status} (must be 'active' or 'skip')")
-                continue
-
-            try:
-                if bot.db.update_server_status(server_name, status):
-                    updated_count += 1
-                    if status == 'active':
-                        active_count += 1
-                    else:
-                        skip_count += 1
-                else:
-                    errors.append(f"Server not found: {server_name}")
-            except Exception as e:
-                errors.append(f"Error updating {server_name}: {e}")
-
-        # Send response
-        response = f"✅ Updated {updated_count} servers\n"
-        response += f"   - {active_count} set to active\n"
-        response += f"   - {skip_count} set to skip"
-
-        if errors:
-            error_msg = "\n".join(errors[:5])  # Show first 5 errors
-            response += f"\n\n⚠️ Errors:\n{error_msg}"
-            if len(errors) > 5:
-                response += f"\n... and {len(errors) - 5} more errors"
-
-        await interaction.followup.send(response, ephemeral=True)
-
-    except yaml.YAMLError as e:
-        await interaction.followup.send(f"❌ Invalid YAML file: {e}", ephemeral=True)
-    except Exception as e:
-        await interaction.followup.send(f"❌ Error updating servers: {e}", ephemeral=True)
+        await interaction.followup.send(
+            f"❌ Error loading servers: {e}",
+            ephemeral=True
+        )
 
 
 def main():

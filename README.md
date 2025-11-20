@@ -17,9 +17,10 @@ A Discord bot for Hell Let Loose that collects player statistics from game serve
 - Auto-updates when new game data is collected
 
 ### Discord Commands
-- **Player Rankings**: Get top N players by KPM, K/D, or Combat Score as YAML files
-- **Server Management**: View and update server status (active/skip) via YAML files
-- **Watchlist Management**: Edit player follow status via YAML file workflow
+- **Player Discovery** (`/top_players`): Discover top 5 neutral players to follow using interactive buttons
+- **Player Management** (`/manage_followed`): Manage your followed players using interactive buttons
+- **Server Management** (`/manage_servers`): Create, update, and delete servers using interactive modals
+- **Data Collection** (`/collect_data`): Manually trigger data collection from active servers
 
 ### Database Views
 - Pre-built ranking views for quick queries
@@ -292,115 +293,236 @@ Once the bot is running and invited to your Discord server:
 
 ### Player Ranking Commands
 
-#### `/top_players` - Get Top Players by KPI
+#### `/top_players` - Discover Top Neutral Players
+
+**Purpose:** Discover new players to follow from the untracked player pool.
 
 **Parameters:**
 - `kpi`: Ranking metric (required)
   - `Kills Per Minute (KPM)` - Best fraggers
   - `Kill/Death Ratio (K/D)` - Most efficient killers
   - `Combat Score` - Overall combat performance
-- `limit`: Number of players (default: 50)
 - `min_games`: Minimum games played (default: 3)
 
 **Examples:**
 ```
-/top_players kpi:Combat Score limit:50 min_games:5
-/top_players kpi:KPM limit:25 min_games:10
-/top_players kpi:K/D limit:100 min_games:3
+/top_players kpi:Combat Score min_games:5
+/top_players kpi:KPM min_games:10
+/top_players kpi:K/D min_games:3
 ```
 
 **What happens:**
-1. Bot generates a YAML file with top N players
-2. Only includes players with `follow=null` or `follow=true`
+1. Bot displays an embed with a condensed table-like view
+2. **Only shows neutral players** (`follow=null`) - untracked players
 3. Filters players by minimum games
-4. Sends file privately (ephemeral - only you see it)
+4. Each player shows on one line:
+   - Rank and name in bold
+   - Status indicator (always ○ = Neutral for this command)
+   - Games played, KPM, K/D ratio, Combat score
+5. Below the table, three buttons per player:
+   - **[Follow PlayerName]** (green) - Start tracking this player
+   - **[Unfollow PlayerName]** (red) - Mark as not interested
+   - **[Clear PlayerName]** (gray) - Keep neutral (no change)
+6. Click any button to update - changes apply immediately
 
-**Sample YAML:**
-```yaml
-ranking_type: Combat Score
-total_players: 50
-min_games_filter: 5
-instructions: Edit the 'follow' field for any player (true/false/null), then upload this file using /update_watchlist
-players:
-- rank: 1
-  player_id: fc5eb4f3d7e154f3b95a8b870f041bb3
-  player_name: Eversti Sandels
-  number_of_games: 7
-  mean_kpm: 0.551
-  mean_kd: 24.43
-  mean_combat: 843.1
-  follow: true
+**Example format:**
+```
+#1 PlayerName | ○ | Games: 10 | KPM: 1.234 | K/D: 2.34 | Combat: 567.8
+[Follow PlayerName] [Unfollow PlayerName] [Clear PlayerName]
 ```
 
-#### `/update_watchlist` - Update Player Follow Status
+---
 
-**Parameters:**
-- `file`: YAML file with edited follow status (required)
+#### `/manage_followed` - Manage Followed Players
 
-**Workflow:**
-1. Use `/top_players` to download YAML file
-2. Edit the `follow` field for any players:
-   - `follow: true` - Mark as followed
-   - `follow: false` - Mark as not followed
-   - `follow: null` - Clear follow status
-3. Upload edited file using `/update_watchlist file:[your_file.yaml]`
-4. Bot confirms updates
+**Purpose:** View and update players you're already tracking.
 
-**Example Response:**
-```
-✅ Updated 50 players in watchlist
-```
-
-### Server Management Commands
-
-#### `/get_servers` - Get Server List
-
-Downloads a YAML file with all servers and their current status.
+**Parameters:** None
 
 **Example:**
 ```
-/get_servers
+/manage_followed
 ```
 
-**Sample YAML:**
-```yaml
-total_servers: 21
-instructions: Edit the 'status' field for any server (active/skip), then upload this file using /update_servers
-status_options:
-- active
-- skip
-servers:
-- name: fin
-  url: http://65.109.128.186:1110/
-  description: HLL FINLAND
-  status: active
-  clan: fin
+**What happens:**
+1. Bot displays an embed with your 5 most recently updated followed players
+2. **Sorted by when you last changed their follow status** (most recent first)
+3. **Only shows followed players** (`follow=true`) - players you're tracking
+4. Each player shows on one line:
+   - Rank (based on recency, not performance)
+   - Name in bold
+   - Status indicator (always ✓ = Following)
+   - Games played, KPM, K/D ratio, Combat score
+5. Below the table, three buttons per player:
+   - **[Follow PlayerName]** (green) - Already following (disabled)
+   - **[Unfollow PlayerName]** (red) - Stop tracking this player
+   - **[Clear PlayerName]** (gray) - Reset to neutral
+6. Click any button to update - changes apply immediately
+
+**Example format:**
+```
+⭐ Followed Players
+Sorted by most recently updated
+
+#1 PlayerName | ✓ | Games: 10 | KPM: 1.234 | K/D: 2.34 | Combat: 567.8
+[Follow PlayerName] [Unfollow PlayerName] [Clear PlayerName]
+
+#2 AnotherPlayer | ✓ | Games: 8 | KPM: 0.987 | K/D: 1.89 | Combat: 432.1
+[Follow AnotherPlayer] [Unfollow AnotherPlayer] [Clear AnotherPlayer]
 ```
 
-#### `/update_servers` - Update Server Status
+**Note:** Shows your 5 most recently updated follows, making it easy to review and adjust your latest tracking decisions
 
-**Parameters:**
-- `file`: YAML file with edited server status (required)
+---
 
-**Workflow:**
-1. Use `/get_servers` to download YAML file
-2. Edit the `status` field for any servers:
-   - `status: active` - Enable data collection
-   - `status: skip` - Disable data collection
-3. Upload edited file using `/update_servers file:[your_file.yaml]`
-4. Bot confirms updates
+**Both commands limited to top 5 players due to Discord component constraints**
+
+---
+
+### Data Collection Commands
+
+#### `/collect_data` - Run Data Collection
+
+**Purpose:** Manually trigger data collection from all active servers.
+
+**Parameters:** None
+
+**Example:**
+```
+/collect_data
+```
+
+**What happens:**
+
+1. **Initial Response**
+   - Bot acknowledges command
+   - Shows "Starting data collection..." message
+   - Warns that it may take several minutes
+
+2. **Background Processing**
+   - Runs `get_data_single_all.py` script
+   - Fetches game data from all servers with `status='active'`
+   - Processes games from newest to oldest
+   - Stops at games older than 4 weeks
+   - Only processes games with >60 players
+   - Updates player watchlist automatically
+
+3. **Completion Summary**
+   - Embed shows last 10 lines of output
+   - Displays any errors if they occurred
+   - Shows exit code (0 = success)
 
 **Example Response:**
 ```
-✅ Updated 21 servers
-   - 3 set to active
-   - 18 set to skip
+📊 Data Collection Complete
+
+Summary
+```
+2025-11-20 12:53:51 - INFO - Server fin complete: 78 games processed, 0 skipped
+2025-11-20 12:53:51 - INFO - Total: 78 games, 6,072 players
+2025-11-20 12:53:51 - INFO - Data collection complete
 ```
 
-### Greeting Commands
+Exit code: 0
+```
 
-- `/hello` - Greet the bot and track your greeting count
-- `/stats` - View your greeting statistics
+**Timeout:**
+- Script has a 10-minute timeout
+- If it takes longer, you'll get a timeout message
+- Script may continue running in background
+
+**Use Cases:**
+- Manually update stats after adding new servers
+- Collect data on-demand instead of waiting for cron
+- Test data collection setup
+- Refresh player statistics
+
+**Note:** This runs the same script as the automated cron job
+
+---
+
+### Server Management Commands
+
+#### `/manage_servers` - Manage Servers
+
+**Purpose:** Create, update, and delete Hell Let Loose servers using an interactive interface.
+
+**Parameters:** None
+
+**Example:**
+```
+/manage_servers
+```
+
+**What happens:**
+
+1. **Server Overview**
+   - Bot displays an embed showing:
+     - Total number of servers
+     - Status summary (active vs skip)
+     - First 10 servers listed
+
+2. **Interactive Components**
+   - **Dropdown menu** - Select a server to view/update/delete (shows up to 25 servers)
+   - **Create button** - Add a new server
+
+**Workflow:**
+
+### Creating a New Server
+
+1. Click **"Create New Server"** button
+2. Modal opens with fields:
+   - **Server Name** - Unique identifier (e.g., "fin")
+   - **Server URL** - API endpoint (e.g., "http://65.109.128.186:1110/")
+   - **Description** - Display name (e.g., "HLL FINLAND")
+   - **Status** - Either "active" or "skip"
+3. Submit modal
+4. Server created and confirmed
+
+### Updating a Server
+
+1. Select server from dropdown menu
+2. Bot shows server details with **"Update"** and **"Delete"** buttons
+3. Click **"Update [ServerName]"** button
+4. Modal opens pre-filled with current values:
+   - Server URL
+   - Description
+   - Status
+5. Edit fields and submit
+6. Server updated and confirmed
+
+### Deleting a Server
+
+1. Select server from dropdown menu
+2. Click **"Delete [ServerName]"** button
+3. Server immediately deleted from database
+4. Confirmation message displayed
+
+**Example Interface:**
+```
+🖥️ Server Management
+Total servers: 21
+
+Status Summary
+✅ Active: 3
+⏭️ Skip: 18
+
+Servers (showing first 10)
+✅ fin - HLL FINLAND
+⏭️ crow - Crow Server
+✅ test - Test Server
+...
+
+[Dropdown: Select a server...]
+[Create New Server]
+```
+
+**Benefits:**
+- ✅ **No file uploads** - Everything done through Discord UI
+- ✅ **Instant feedback** - See changes immediately
+- ✅ **Pre-filled forms** - Update modal shows current values
+- ✅ **Safe deletion** - One-click delete with confirmation
+- ✅ **Visual status** - See active/skip at a glance
 
 ## Database Schema
 
@@ -456,12 +578,9 @@ uv run manage_watchlist.py
 
 Refreshes watchlist and shows followed players.
 
-### Test YAML Generation
+### Test Server YAML Generation
 
 ```bash
-# Test player rankings YAML
-uv run test_yaml_generation.py
-
 # Test servers YAML
 uv run test_servers_yaml.py
 ```
@@ -475,7 +594,6 @@ hll_discord_bot/
 ├── load_servers.py                 # Load servers from YAML into database
 ├── manage_watchlist.py             # Manage player watchlist
 ├── show_rankings.py                # Display player rankings
-├── test_yaml_generation.py         # Test player ranking YAML generation
 ├── test_servers_yaml.py            # Test server YAML generation
 ├── database/
 │   ├── __init__.py
