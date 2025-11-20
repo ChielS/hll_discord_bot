@@ -1,0 +1,86 @@
+ranking_type: Kills Per Minute
+total_players: 10
+min_games_filter: 5
+instructions: Edit the 'follow' field for any player (true/false/null), then upload
+  this file using /update_watchlist
+players:
+- rank: 1
+  player_id: 59b2d49eabad3b43b94e138555b3b33e
+  player_name: Myntttine
+  number_of_games: 12
+  mean_kpm: 4.848
+  mean_kd: 1.66
+  mean_combat: 70.9
+  follow: null
+- rank: 2
+  player_id: 47fa800ff1df57bb029b9e2e1a819b0a
+  player_name: xXcosa_8Xx
+  number_of_games: 5
+  mean_kpm: 4.09
+  mean_kd: 1.01
+  mean_combat: 260.4
+  follow: null
+- rank: 3
+  player_id: 62c6a12c120830b7b6514046e6935088
+  player_name: Naemnik_Lion
+  number_of_games: 9
+  mean_kpm: 3.899
+  mean_kd: 1.24
+  mean_combat: 363.0
+  follow: null
+- rank: 4
+  player_id: fbc9137211f2f62190606210a9d1ceb3
+  player_name: Oberst Van Dijk
+  number_of_games: 21
+  mean_kpm: 3.436
+  mean_kd: 6.98
+  mean_combat: 685.8
+  follow: true
+- rank: 5
+  player_id: 352671c35ddf82b0258b8190a21ff2a4
+  player_name: deacon076
+  number_of_games: 10
+  mean_kpm: 3.154
+  mean_kd: 1.16
+  mean_combat: 143.3
+  follow: null
+- rank: 6
+  player_id: 1214cf5b0f69c14b7bfb697bd9170c5b
+  player_name: Gerry
+  number_of_games: 46
+  mean_kpm: 2.264
+  mean_kd: 2.53
+  mean_combat: 440.8
+  follow: null
+- rank: 7
+  player_id: 549cb2fb024b5750ba8eb14959bcae95
+  player_name: sissijuusto
+  number_of_games: 7
+  mean_kpm: 1.87
+  mean_kd: 1.15
+  mean_combat: 121.4
+  follow: null
+- rank: 8
+  player_id: 7815f38e233317d3f14f0d9ccabd5651
+  player_name: Juustoburgeri84
+  number_of_games: 80
+  mean_kpm: 1.789
+  mean_kd: 1.1
+  mean_combat: 500.1
+  follow: null
+- rank: 9
+  player_id: 307a6791b39c24e8e8be542be6c23ecd
+  player_name: Mannerheim
+  number_of_games: 52
+  mean_kpm: 1.755
+  mean_kd: 1.58
+  mean_combat: 504.4
+  follow: null
+- rank: 10
+  player_id: d51baeb35be7f5a8b7d25090039b5cd2
+  player_name: Nilsu
+  number_of_games: 8
+  mean_kpm: 1.44
+  mean_kd: 0.7
+  mean_combat: 87.9
+  follow: null

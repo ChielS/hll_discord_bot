@@ -1,0 +1,86 @@
+ranking_type: Combat Score
+total_players: 10
+min_games_filter: 3
+instructions: Edit the 'follow' field for any player (true/false/null), then upload
+  this file using /update_watchlist
+players:
+- rank: 1
+  player_id: 27dc86d06e5c109a33908e85d5f4d62f
+  player_name: Clark_Gable
+  number_of_games: 3
+  mean_kpm: 0.21
+  mean_kd: 1.18
+  mean_combat: 852.7
+  follow: true
+- rank: 2
+  player_id: fc5eb4f3d7e154f3b95a8b870f041bb3
+  player_name: Eversti Sandels
+  number_of_games: 7
+  mean_kpm: 0.551
+  mean_kd: 24.43
+  mean_combat: 843.1
+  follow: true
+- rank: 3
+  player_id: b8ec275ace8f847c7f30d5ae95626f61
+  player_name: endrjuxx
+  number_of_games: 3
+  mean_kpm: 0.38
+  mean_kd: 7.19
+  mean_combat: 801.3
+  follow: null
+- rank: 4
+  player_id: 3bac65c856bf8158f53539c396e0c091
+  player_name: 1SBS groszekoki
+  number_of_games: 4
+  mean_kpm: 0.835
+  mean_kd: 2.37
+  mean_combat: 741.8
+  follow: null
+- rank: 5
+  player_id: b00ab7cd6e0c50e2e74ffc1a52536f5e
+  player_name: Riutta
+  number_of_games: 6
+  mean_kpm: 0.18
+  mean_kd: 2.04
+  mean_combat: 705.0
+  follow: null
+- rank: 6
+  player_id: fbc9137211f2f62190606210a9d1ceb3
+  player_name: Oberst Van Dijk
+  number_of_games: 21
+  mean_kpm: 3.436
+  mean_kd: 6.98
+  mean_combat: 685.8
+  follow: true
+- rank: 7
+  player_id: 38da2ff16bbc9e5273da1e611caf713f
+  player_name: ' GENERAL BOOTY'
+  number_of_games: 4
+  mean_kpm: 2.54
+  mean_kd: 0.61
+  mean_combat: 666.2
+  follow: null
+- rank: 8
+  player_id: 4d1726cd6567085c6d32e4d177920eee
+  player_name: mike_oxlong22_
+  number_of_games: 5
+  mean_kpm: 0.6
+  mean_kd: 1.53
+  mean_combat: 651.6
+  follow: null
+- rank: 9
+  player_id: 640c971e2c2425761d93c6961fdeb401
+  player_name: pahvi1987
+  number_of_games: 107
+  mean_kpm: 0.773
+  mean_kd: 4.49
+  mean_combat: 616.9
+  follow: null
+- rank: 10
+  player_id: 34bf9c9d55a1982285c26adb1e8a1964
+  player_name: Swedish Army 79
+  number_of_games: 7
+  mean_kpm: 0.101
+  mean_kd: 0.78
+  mean_combat: 615.1
+  follow: true

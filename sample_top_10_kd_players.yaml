@@ -1,0 +1,86 @@
+ranking_type: Kill/Death Ratio
+total_players: 10
+min_games_filter: 3
+instructions: Edit the 'follow' field for any player (true/false/null), then upload
+  this file using /update_watchlist
+players:
+- rank: 1
+  player_id: 63f621faab99ff5d79ec49748c1d8eb6
+  player_name: Koplis95
+  number_of_games: 3
+  mean_kpm: 0.5
+  mean_kd: 28.27
+  mean_combat: 264.0
+  follow: null
+- rank: 2
+  player_id: fc5eb4f3d7e154f3b95a8b870f041bb3
+  player_name: Eversti Sandels
+  number_of_games: 7
+  mean_kpm: 0.551
+  mean_kd: 24.43
+  mean_combat: 843.1
+  follow: true
+- rank: 3
+  player_id: b3ed58b4034332045001e9a9a5b05bf9
+  player_name: BoydBibleSwan
+  number_of_games: 3
+  mean_kpm: 1.317
+  mean_kd: 22.44
+  mean_combat: 231.7
+  follow: null
+- rank: 4
+  player_id: 7777d814cc19821c2c16a4c7d55a66db
+  player_name: Suksimies
+  number_of_games: 4
+  mean_kpm: 0.347
+  mean_kd: 12.56
+  mean_combat: 245.5
+  follow: null
+- rank: 5
+  player_id: 52ce36a6b8c62f2cc539e2e41bf02cf5
+  player_name: PFC SenpaiStar
+  number_of_games: 3
+  mean_kpm: 0.733
+  mean_kd: 10.27
+  mean_combat: 401.3
+  follow: null
+- rank: 6
+  player_id: 13a9f23e2bbe4e09b2ba02e7b2dc97e2
+  player_name: Daytona_Founts
+  number_of_games: 4
+  mean_kpm: 0.44
+  mean_kd: 10.05
+  mean_combat: 404.5
+  follow: null
+- rank: 7
+  player_id: cf79651e4ff786f6b37daa5ee3ce4faa
+  player_name: GreenHorn606
+  number_of_games: 3
+  mean_kpm: 0.593
+  mean_kd: 9.61
+  mean_combat: 323.3
+  follow: null
+- rank: 8
+  player_id: eddbf380659dd928a43989f2acc794ef
+  player_name: Zouez63
+  number_of_games: 3
+  mean_kpm: 0.733
+  mean_kd: 9.56
+  mean_combat: 244.7
+  follow: null
+- rank: 9
+  player_id: 5c10ac43f00b8aa54b44ee9ff7710721
+  player_name: Icardisic
+  number_of_games: 3
+  mean_kpm: 0.883
+  mean_kd: 9.08
+  mean_combat: 477.3
+  follow: null
+- rank: 10
+  player_id: 89351c26e133e8699def86546ae67cc7
+  player_name: DeDaano0
+  number_of_games: 4
+  mean_kpm: 0.45
+  mean_kd: 8.69
+  mean_combat: 171.2
+  follow: null
